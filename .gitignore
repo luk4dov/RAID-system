@@ -1,0 +1,25 @@
+# object files and dependencies
+*.o
+*.d
+
+# kernel-specific files
+kernel.ld
+kernel.asm
+kernel/kernel
+
+# stubs
+_*
+
+# user related files
+*.asm
+*.sym
+user/initcode
+user/initcode.out
+user/usys.S
+
+# disks related files
+disk_*
+fs.img
+
+# file system
+mkfs/mkfs
