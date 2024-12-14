@@ -1,0 +1,24 @@
+{
+    "files.associations": {
+        "defs.h": "c",
+        "user.h": "c",
+        "types.h": "c",
+        "riscv.h": "c",
+        "virtio.h": "c",
+        "fs.h": "c",
+        "*.tcc": "c",
+        "exception": "c",
+        "memory_resource": "c",
+        "format": "c",
+        "fstream": "c",
+        "iosfwd": "c",
+        "new": "c",
+        "ostream": "c",
+        "sstream": "c",
+        "stop_token": "c",
+        "streambuf": "c",
+        "*.inc": "c",
+        "raid.h": "c",
+        "random": "c"
+    }
+}

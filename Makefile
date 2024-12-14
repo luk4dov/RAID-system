@@ -13,11 +13,13 @@ OBJS = \
   $K/main.o \
   $K/vm.o \
   $K/proc.o \
+  $K/raid.o \
   $K/swtch.o \
   $K/trampoline.o \
   $K/trap.o \
   $K/syscall.o \
   $K/sysproc.o \
+  $K/sysraid.o \
   $K/bio.o \
   $K/fs.o \
   $K/log.o \
@@ -28,7 +30,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/raid_rw.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -51,11 +54,15 @@ endif
 
 
 ifndef DISKS
-DISKS := 2 # How many RAID disks
+DISKS := 5 # How many RAID disks
 endif
 
 ifndef DISK_SIZE
 DISK_SIZE := 128M
+endif
+
+ifndef _DISK_SIZE
+_DISK_SIZE := 128*1024*1024
 endif
 
 RAID_DISKS = $(shell count=`expr $(DISKS) - 1`; for i in `seq 0 $$count`; do echo -n "disk_$$i.img "; done)
@@ -71,7 +78,7 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
-CFLAGS = -Wall -Werror -O0 -fno-omit-frame-pointer -ggdb -gdwarf-2 -DDISKS=$(DISKS) -DMEM=$(MEM)
+CFLAGS = -Wall -Werror -O0 -fno-omit-frame-pointer -ggdb -gdwarf-2 -DDISKS=$(DISKS) -DMEM=$(MEM) -DDISK_SIZE=$(_DISK_SIZE)
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
@@ -148,6 +155,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_maxout_vm\
+	$U/_raid_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

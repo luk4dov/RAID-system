@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Attach to QEMU",
+            "executable": "kernel/kernel",
+            "target": "localhost:26000",
+            "remote": true,
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "prettyPrinters",
+            "gdbpath": "riscv64-linux-gnu-gdb",
+        },
+        {
+            "name": "debug mkfs",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/mkfs/mkfs.exe",
+            "args": ["fs.img", "README", "user/_cat", "user/_echo", "user/_forktest", "user/_grep", "user/_init", "user/_kill", "user/_ln", "user/_ls", "user/_mkdir", "user/_rm", "user/_sh", "user/_stressfs", "user/_usertests", "user/_grind", "user/_wc", "user/_zombie", "user/_maxout_vm"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+    ]
+}
