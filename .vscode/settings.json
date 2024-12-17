@@ -19,6 +19,7 @@
         "streambuf": "c",
         "*.inc": "c",
         "raid.h": "c",
-        "random": "c"
+        "random": "c",
+        "spinlock.h": "c"
     }
 }
