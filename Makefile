@@ -155,7 +155,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_maxout_vm\
-	$U/_raid_test\
+	$U/_raidtest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -1,10 +1,13 @@
 #include "defs.h"
 
 // TO DO: add concurrent access to disks (spinlocks)
+// raid_metadata->stripe_cursor - MOZDA NE TREBA
 
 #define PARITY_DISK DISKS
 #define STRIPE_SIZE DISKS/2
 #define BLOCKSIZE 512
+
+enum dstate { ALIVE, DEAD, REPAIRED };
 
 struct raid {
     int raid_initialized; // 0 or 1
@@ -16,14 +19,19 @@ struct raid {
     uint max_blocks; // number of free blocks remaining
     uint remaining_blocks;
 
-    uint dead_disk; // pointer to dead disk
     uint num_dead_disks; // number of dead disks
+    enum dstate disk_state[DISKS]; // disk state
 
-    // for RAID 1
+    // for RAID 1 and RAID 0+1
+    // index of data disks;
+    uint data_disks[DISKS/2];
     // index of copy disks
-    uint copy_disks[(DISKS-1)/2];
+    uint copy_disks[DISKS/2];
     // index of reserve disk that would jump in to serve when one dies
     uint reserve_disk;
+    // raid0 can function even if it has all copies dead, so I need an array to store which disk is dead
+    // if both primary and copy are dead, then there is no functioning
+    uint max_dead_disks;
 
     // for RAID0+1
     uint stripe_cursor; // pointer to the next disk in stripe
@@ -37,9 +45,7 @@ struct raid {
 
     struct cached_blocks {
         uint stripe; // stripe that's cached
-        uint parity_cached; // pointer to parity block in cache (if RAID system has parity block)
-        uint dirty_blocks[DISKS]; // 0 or 1, if the write operation hit certain block
-        uint modified_parity; // if parity block has been modified
+        uint parity_cached; // pointer to parity block in cache (if RAID system has parity block that's not fixed)
         uchar *cached_data_disks[DISKS]; // cached data 
     } cache;
 };

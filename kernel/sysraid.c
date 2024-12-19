@@ -17,7 +17,10 @@ sys_read_raid(void)
     uint64 data;
     argint(0, &blkn);
     argaddr(1, &data);
-    return read_raid(blkn, (uchar*)data);
+    int ret = read_raid(blkn, (uchar*)data);
+    if(ret == -1)
+        printf("CAN'T READ\n");
+    return ret;
 }
 
 uint64
@@ -27,7 +30,10 @@ sys_write_raid(void)
     uint64 data;
     argint(0, &blkn);
     argaddr(1, &data);
-    return write_raid(blkn, (uchar*)data);
+    int ret = write_raid(blkn, (uchar*)data);
+    if(ret == -1)
+        printf("CAN'T WRITE\n");
+    return ret;
 }
 
 uint64
@@ -37,12 +43,29 @@ sys_info_raid(void)
     argaddr(0, &blkn);
     argaddr(1, &blks);
     argaddr(2, &diskn);
-    return info_raid((uint*)blkn, (uint*)blks, (uint*)diskn);
+    int ret = info_raid((uint*)blkn, (uint*)blks, (uint*)diskn);
+    if(ret == -1) {
+        printf("RAID NOT INITIALIZED\n");
+    } else{
+        printf("RAID INITIALIZED\n");
+    }
+    return ret;
 }
 
 uint64
 sys_disk_fail_raid(void) {
     int diskn;
     argint(0, &diskn);
-    return disk_fail_raid(diskn);
+    int ret = disk_fail_raid(diskn);
+    if(ret == -1) {
+        printf("DISK DOESN'T EXIST\n");
+    }
+    return ret;
 } 
+
+uint64
+sys_disk_repaired_raid(void) {
+    int diskn;
+    argint(0, &diskn);
+    return disk_repaired_raid(diskn);
+}
