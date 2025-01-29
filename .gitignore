@@ -23,3 +23,5 @@ fs.img
 
 # file system
 mkfs/mkfs
+
+user/jokotest.c

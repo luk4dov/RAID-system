@@ -4,7 +4,7 @@
 
 void dwrite(uint block_size) {
     uchar* addr_write = malloc(block_size);
-    for(int j = 0; j < 12; ++j) {
+    for(int j = 0; j < 20; ++j) {
         for(int i = 0; i < block_size; ++i) {
             addr_write[i] = j+1;
         }
@@ -15,39 +15,39 @@ void dwrite(uint block_size) {
 
 void dread(uint block_size) {
     uchar* addr_read = malloc(block_size);
-    int sums[12];
-    for(int j = 0; j < 12; ++j) {
-        int sum = 0;
-        read_raid(j, addr_read);
-
+    uint sums[20];
+    for(int j = 0; j < 20; ++j) {
+        uint sum = 0;
+        read_raid(j, addr_read); 
         for(int i = 0; i < block_size; ++i) {
             sum += addr_read[i];
         }
         sums[j] = sum;
     }
-    for(int j = 0; j < 12; ++j) {
+    for(int j = 0; j < 20; ++j) {
         printf("%d\n", sums[j]);
     }
-    free(sums);
     free(addr_read);
 }
 
 
 int main() {
-    // init_raid(RAID4);
+    init_raid(RAID5);
 
     uint block_num, block_size, disk_num;
     info_raid(&block_num, &block_size, &disk_num);
 
-    // dwrite(block_size);
+    dwrite(block_size);
+    dread(block_size);
 
     disk_fail_raid(2);
+    dread(block_size);
+
     disk_fail_raid(3);
     disk_repaired_raid(2);
-    disk_repaired_raid(3);
+    dread(block_size);
 
-
-    dread(block_size);    
+    // destroy_raid();
 
     return 0;
 }

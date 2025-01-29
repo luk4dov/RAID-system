@@ -108,6 +108,7 @@ extern uint64 sys_write_raid(void);
 extern uint64 sys_info_raid(void);
 extern uint64 sys_disk_fail_raid(void);
 extern uint64 sys_disk_repaired_raid(void);
+extern uint64 sys_destroy_raid(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -138,7 +139,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_write_raid]         sys_write_raid,
 [SYS_info_raid]          sys_info_raid,
 [SYS_disk_fail_raid]     sys_disk_fail_raid,
-[SYS_disk_repaired_raid] sys_disk_repaired_raid
+[SYS_disk_repaired_raid] sys_disk_repaired_raid,
+[SYS_destroy_raid]       sys_destroy_raid
 };
 
 void

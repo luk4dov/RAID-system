@@ -7,29 +7,18 @@
 #include "proc.h"
 
 struct raid *raid_metadata = {0};
+extern void fetch();
 
 int init_raid(enum RAID_TYPE raid) {
-    if(raid_metadata == 0 || !raid_metadata->raid_initialized) {
-        uchar* data = kalloc();
-        read_block(1, 0, data);
-        raid_metadata = (struct raid*)data;
+    fetch();
 
-        // cache is not valid 
-        raid_metadata->cache.stripe = -1;
-        raid_metadata->cache.parity_cached = -1;
-        // raid_metadata->cache.modified_parity = 0;
-
-        for(int i = 0; i < DISKS; ++i) {
-            // raid_metadata->cache.dirty_blocks[i] = 0;
-            raid_metadata->cache.cached_data_disks[i] = (uchar*)((uint64)raid_metadata + (BLOCKSIZE * (i+1)));
-        }
-    }
     raid_metadata->raid_initialized = 1;
     raid_metadata->type = raid;
     raid_metadata->block_size = BLOCKSIZE;
     raid_metadata->num_of_disks = DISKS;
+    raid_metadata->num_dead_disks = 0;
     raid_metadata->reserve_disk = -1;
-    // -1 because metadata is stored in first block of every disk
+
     raid_metadata->max_blocks = raid_metadata->num_of_disks * (DISK_SIZE/BLOCKSIZE - 1);
     // specific initialization for each raid system
     switch (raid) {
@@ -53,15 +42,13 @@ int init_raid(enum RAID_TYPE raid) {
         case RAID4: {
             // define parity disk and stripe size
             raid_metadata->max_dead_disks = 2;
-            raid_metadata->stripe_size = DISKS-1;
             raid_metadata->parity_disk = PARITY_DISK-1;
             raid_metadata->num_of_disks--;
             break;
         }
         case RAID5: {
             raid_metadata->max_dead_disks = 2;
-            // define stripe size and add 1 for parity block
-            raid_metadata->stripe_size = STRIPE_SIZE+1;
+            printf("\n");
             break;
         }
         default: {
@@ -70,7 +57,7 @@ int init_raid(enum RAID_TYPE raid) {
     }
     // save metadata on first block of every disk
     for(int i = 1; i <= DISKS; ++i) {
-        raid_metadata->cache.cached_data_disks[i] = (uchar*)((uint64)raid_metadata + (BLOCKSIZE * (i+1))); 
+        raid_metadata->cache.cached_data_disks[i-1] = (uchar*)((uint64)raid_metadata + (BLOCKSIZE * i)); 
         write_block(i, 0, (uchar*)(raid_metadata));
     }
     return 0;
@@ -104,7 +91,7 @@ static int (*raid_rw[])(int,uchar*) = {
 };
 
 int read_raid(int blkn, uchar* vaddr_data) {
-    if(blkn < 0 || blkn >= raid_metadata->max_blocks || vaddr_data == 0) return -1;
+    if(raid_metadata == 0 || !raid_metadata->raid_initialized || blkn < 0 || blkn >= raid_metadata->max_blocks || vaddr_data == 0) return -1;
 
     // translate virtual to physical address
     uchar* paddr_data = (uchar*)(walkaddr(myproc()->pagetable, (uint64)vaddr_data) | 
@@ -115,8 +102,7 @@ int read_raid(int blkn, uchar* vaddr_data) {
 }
 
 int write_raid(int blkn, uchar* vaddr_data) { // should also check if the metadata is in RAM
-    if(blkn < 0 || blkn >= raid_metadata->max_blocks || vaddr_data == 0) return -1;
-    
+    if(raid_metadata == 0 || !raid_metadata->raid_initialized || blkn < 0 || blkn >= raid_metadata->max_blocks || vaddr_data == 0) return -1;
     // translate virtual to physical address
     uchar* paddr_data = (uchar*)(walkaddr(myproc()->pagetable, (uint64)vaddr_data) | 
                                  ((uint64)vaddr_data & OFFSET));
@@ -126,21 +112,7 @@ int write_raid(int blkn, uchar* vaddr_data) { // should also check if the metada
 }
 
 int info_raid(uint *v_blkn, uint *v_blks, uint *v_disks) {    
-    if(raid_metadata == 0 || !raid_metadata->raid_initialized) {
-        uchar* data = kalloc();
-        read_block(1, 0, data);
-
-        raid_metadata = (struct raid*)data;
-        
-        raid_metadata->cache.stripe = -1;
-        raid_metadata->cache.parity_cached = -1;
-        // raid_metadata->cache.modified_parity = 0;
-
-        for(int i = 0; i < DISKS; ++i) {
-            // raid_metadata->cache.dirty_blocks[i] = 0;
-            raid_metadata->cache.cached_data_disks[i] = (uchar*)((uint64)raid_metadata + (BLOCKSIZE * (i+1))); 
-        }
-    }
+    fetch();
     if(!raid_metadata->raid_initialized) return -1;
 
     uint* p_blkn = (uint*)(walkaddr(myproc()->pagetable, (uint64)v_blkn) | ((uint64)v_blkn & OFFSET));
@@ -153,13 +125,13 @@ int info_raid(uint *v_blkn, uint *v_blks, uint *v_disks) {
 }
 
 int disk_fail_raid(int diskn) {
-    if(raid_metadata == 0 || diskn < 1 || diskn > DISKS)
+    if(raid_metadata == 0 || !raid_metadata->raid_initialized || diskn < 1 || diskn > DISKS)
         return -1;
     // check if disk was already dead
     if(raid_metadata->disk_state[diskn-1] == DEAD) return 0;
     // mark the disk as dead
     raid_metadata->disk_state[diskn-1] = DEAD;
-    raid_metadata->num_dead_disks++;
+    raid_metadata->num_dead_disks++; 
     
     if(raid_metadata->type == RAID0 || raid_metadata->type == RAID4 || raid_metadata->type == RAID5) {
         writeback();
@@ -188,31 +160,76 @@ int disk_fail_raid(int diskn) {
     }
     // there is no reserve disk for raid 0 and raid 0+1
     // check if the disk is primary or copy
-    int index = -1; // index of primary 
+    int primary = -1; // index of primary 
     for(int i = 0; i < raid_metadata->num_of_disks; ++i)
         if (raid_metadata->data_disks[i]==diskn)
-            index = i;
-    if(index != -1) { // if primary died, use copy as new primary
-        raid_metadata->data_disks[index] = raid_metadata->copy_disks[index];
-        raid_metadata->copy_disks[index] = -1;
+            primary = i;
+    
+    if(primary != -1) { // if primary died, use copy as new primary
+        raid_metadata->data_disks[primary] = raid_metadata->copy_disks[primary];
+        raid_metadata->copy_disks[primary] = -1;
     } else {
-        raid_metadata->copy_disks[diskn-1] = -1; 
+        // it's not primary, find the primary whose copy died and mark it as dead
+        int copy = -1;
+        for(int i = 0; i < raid_metadata->num_of_disks; ++i)
+            if (raid_metadata->copy_disks[i]==diskn)
+                copy = i;
+        raid_metadata->copy_disks[copy] = -1; 
     }
     writeback();
     return 0;
 }
 
 int disk_repaired_raid(int diskn) {
-    if(raid_metadata == 0 || diskn < 1 || diskn > DISKS) {
+    if(raid_metadata == 0 || !raid_metadata->raid_initialized || diskn < 1 || diskn > DISKS)
         return -1;
-    }
     // if disk isn't dead, no effect
-    if(raid_metadata->disk_state[diskn-1] != DEAD) { 
+    if(raid_metadata->disk_state[diskn-1] != DEAD) {
         return 0;
     }
     // mark disk as alive
     raid_metadata->disk_state[diskn-1] = REPAIRED;
     raid_metadata->num_dead_disks--;
+    
+    if(raid_metadata->type == RAID0 || raid_metadata->type == RAID4 || raid_metadata->type == RAID5) {
+        writeback();
+        return 0;
+    }
+    // check if primary for every "column" of disks doesn't exist
+    for(int i = 0; i < raid_metadata->num_of_disks; ++i) {
+        if(raid_metadata->data_disks[i] != -1) continue;
+        raid_metadata->data_disks[i] = diskn;
+        writeback();
+        return 0;
+    }
+    // check if some primary doesn't have a copy
+    for(int i = 0; i < raid_metadata->num_of_disks; ++i) {
+        if(raid_metadata->copy_disks[i] != -1) continue;
+        raid_metadata->copy_disks[i] = diskn;
+        writeback();
+        // a new thread should be run to copy content from primary data disk to copy disk
+        // copy(primary, copy);
+        return 0;
+    }
+    // otherwise it must be reserved
+    raid_metadata->reserve_disk = diskn;
     writeback();
+    return 0;
+}
+
+int destroy_raid() {
+    if(raid_metadata == 0 || !raid_metadata->raid_initialized) {
+        uchar* data = kalloc();
+        read_block(1, 0, data);
+        raid_metadata = (struct raid*)data;
+    }
+    if(raid_metadata == 0 || !raid_metadata->raid_initialized) {
+        return 0;
+    }
+    // set 0 for everything
+    memset((char*)raid_metadata, 0, PGSIZE);
+    writeback();
+    kfree(raid_metadata);
+    raid_metadata = 0;
     return 0;
 }

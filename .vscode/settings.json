@@ -20,6 +20,8 @@
         "*.inc": "c",
         "raid.h": "c",
         "random": "c",
-        "spinlock.h": "c"
+        "spinlock.h": "c",
+        "memlayout.h": "c",
+        "buf.h": "c"
     }
 }
